@@ -55,4 +55,4 @@ This agent is designed to be trained using the **LoL Simulated Laning Environmen
 ---
 
 **Version**: 1.1  
-**Last Updated**: December 2024 
+**Last Updated**: June 2025
