@@ -41,8 +41,8 @@ This project critically depends on the **LoL Simulated Laning Environment** (`lo
 
 ## Documentation
 
-- **[Project Specification](taric_ai_agent.md)**: Complete project requirements, features, and detailed implementation plan
-- **[Architecture Overview](Architecture_agent.md)**: File structure and architectural design
+- **[Project Specification](docs/taric_ai_agent.md)**: Complete project requirements, features, and detailed implementation plan
+- **[Architecture Overview](docs/Architecture_agent.md)**: File structure and architectural design
 
 ## Development Status
 
@@ -55,4 +55,4 @@ This agent is designed to be trained using the **LoL Simulated Laning Environmen
 ---
 
 **Version**: 1.1  
-**Last Updated**: June 2025
+**Last Updated**: December 2024
