@@ -44,8 +44,20 @@ This project integrates with:
 
 ## Documentation
 
+### Project Documentation
 - **[Project Specification](docs/taric_ai_agent.md)**: Complete project requirements, features, and detailed implementation plan
 - **[Architecture Overview](docs/Architecture_agent.md)**: File structure and architectural design
+
+### External Data Sources
+- **[League of Legends Wiki](https://wiki.leagueoflegends.com/en-us/)**: Reference for champion abilities and game mechanics
+- **[Riot Games API](https://developer.riotgames.com/)**: Live game data collection and LCU integration
+
+### IDE Integration - Cursor Settings
+For enhanced development with LoL-specific context:
+
+1. **Open Cursor Settings** → `Cursor: Docs`
+2. **Add Documentation Sources**: League of Legends Wiki, Riot API docs
+3. **Auto-completion**: Enable indexing for champion names, abilities, and game terminology
 
 ## Development Status
 
