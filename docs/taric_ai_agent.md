@@ -12,7 +12,7 @@
 * **Solution:** Combine IL and RL.
     1.  **IL:** Collect data from human Taric gameplay in the *live LoL game* (Practice Tool for initial clean data). Train a policy to mimic human actions mapped to the `lol_sim_env`'s abstract state/action space.
     2.  **RL:** Initialize an RL agent with the IL policy. Train it in the `lol_sim_env`.
-* **Dependency:** Critically depends on Project 1 (`lol_sim_env`) and a robust `state_action_mapper.py`.
+* **Dependencies:** Critically depends on the [LoL Simulation Environment](https://github.com/your-username/lol-sim-env) for training and the [LoL Data MCP Server](https://github.com/your-username/lol-data-mcp-server) for enhanced state mapping with real-time data correlation.
 * **Development Philosophy:** Iterative. **M2.0 (State/Action Mapping Feasibility Prototype) is the highest initial priority.** Simplify IL data collection and vision processing for MVP. Focus on an end-to-end IL->RL pipeline with simplified components first. Parallel development with Project 1, with Project 1 focusing on environment features and Project 2 focusing on data pipeline and agent, ensuring interfaces align through early integration tests.
 
 ---
@@ -32,8 +32,10 @@ This section outlines target functionality. "IV. Detailed Implementation Plan" b
     * R1.2.2: State Construction & Synchronization in `data_processor.py`: Aligns LCU, vision, input logs.
     * R1.2.3 (Critical & Iterative): `State Mapping to Sim-Env` in `state_action_mapper.py`:
         * Function `map_live_state_to_sim_observation(live_game_state, mapping_config)`: Maps live game state to `lol_sim_env.observation_space`. Handles coordinate transformation (e.g., screen-relative to sim-relative). Normalizes values.
+        * **MCP Integration**: Enhanced mapping using real-time champion/ability data from LoL Data MCP Server.
     * R1.2.4 (Critical & Iterative): `Action Mapping to Sim-Env` in `state_action_mapper.py`:
         * Function `map_live_action_to_sim_action(live_input, live_game_state)`: Maps live inputs to `lol_sim_env.action_space`. Uses heuristics for mouse clicks.
+        * **MCP Integration**: Improved action mapping with current meta builds and ability priorities.
     * R1.2.5: `scripts/process_il_data_session.py` generates `(sim_obs, sim_action)` pairs.
 * R1.3: IL Model (`taric_ai_agent/agents/il_policy_network.py` & `il/il_dataset.py`):
     * R1.3.1: IL neural network (e.g., MLP, optional CNN for vision features if used in sim_obs).

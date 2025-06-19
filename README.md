@@ -37,7 +37,10 @@ This project develops a high-performing AI agent for playing Taric in a 2v2 lani
 
 ## Dependencies
 
-This project critically depends on the **LoL Simulated Laning Environment** (`lol_sim_env`) project, which provides the training environment for the RL phase.
+This project integrates with:
+
+- **[LoL Simulated Laning Environment](https://github.com/your-username/lol-sim-env)**: Provides the training environment for the RL phase
+- **[LoL Data MCP Server](https://github.com/your-username/lol-data-mcp-server)**: Enhances state mapping with real-time champion data and meta analysis
 
 ## Documentation
 
@@ -50,7 +53,10 @@ This project critically depends on the **LoL Simulated Laning Environment** (`lo
 
 ## Related Projects
 
-This agent is designed to be trained using the **LoL Simulated Laning Environment** (`lol_sim_env`) project for the reinforcement learning phase.
+This agent is designed to work with:
+
+- **[LoL Simulated Laning Environment](https://github.com/your-username/lol-sim-env)**: Training environment for the reinforcement learning phase
+- **[LoL Data MCP Server](https://github.com/your-username/lol-data-mcp-server)**: Real-time data correlation for enhanced state mapping
 
 ---
 
