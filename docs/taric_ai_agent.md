@@ -1,52 +1,90 @@
 # Project 2 PRD: Taric AI Agent (IL + RL) (`taric_ai_agent`)
 
-**Version:** 1.1
-**Date:** May 28, 2025
-**Project Goal:** To develop a high-performing AI agent for playing Taric in a 2v2 laning scenario. The agent will be pre-trained using Imitation Learning from human expert data collected from the live League of Legends game, and then further refined using Reinforcement Learning within the `lol_sim_env` (from Project 1).
+**Version:** 2.0
+**Date:** December 2024
+**Project Goal:** To develop a high-performing AI agent for playing Taric in a 2v2 laning scenario. The agent will be pre-trained using **Imitation Learning from MCP-provided ready-to-train datasets** from sophisticated high-ELO player analysis, and then further refined using **Reinforcement Learning within the `lol_sim_env`**.
 
 ---
 
 ## I. Vision & Scope
 
-* **Problem:** Training an RL agent for Taric from scratch is sample-inefficient. Human expert data provides a strong inductive bias.
-* **Solution:** Combine IL and RL.
-    1.  **IL:** Collect data from human Taric gameplay in the *live LoL game* (Practice Tool for initial clean data). Train a policy to mimic human actions mapped to the `lol_sim_env`'s abstract state/action space.
-    2.  **RL:** Initialize an RL agent with the IL policy. Train it in the `lol_sim_env`.
-* **Dependencies:** Critically depends on the [LoL Simulation Environment](https://github.com/your-username/lol-sim-env) for training and the [LoL Data MCP Server](https://github.com/your-username/lol-data-mcp-server) for enhanced state mapping with real-time data correlation.
-* **Development Philosophy:** Iterative. **M2.0 (State/Action Mapping Feasibility Prototype) is the highest initial priority.** Simplify IL data collection and vision processing for MVP. Focus on an end-to-end IL->RL pipeline with simplified components first. Parallel development with Project 1, with Project 1 focusing on environment features and Project 2 focusing on data pipeline and agent, ensuring interfaces align through early integration tests.
+* **Problem:** Training an RL agent for Taric from scratch is sample-inefficient. Manual data collection and processing is extremely complex (as shown by previous 15MB per game preprocessing pipelines).
+* **Solution:** **MCP-Powered IL + Simulation-Powered RL**
+    1.  **IL via MCP:** Use LoL Data MCP Server to get **ready-to-train datasets** from high-ELO Taric players (like Estaed#TAR) with sophisticated preprocessing (state-action pairs, enhanced features, scenario labels).
+    2.  **RL via Simulation:** Initialize an RL agent with the IL policy and train it in the `lol_sim_env` for robust performance and additional learning.
+    3.  **MCP serves BOTH projects:** Provides champion/game data to `lol_sim_env` for accurate simulation AND provides ready-to-train IL datasets to `taric_ai_agent`.
+* **Dependencies:** 
+    - **[LoL Data MCP Server](../Lol_Data_MCP_Server/)**: Primary dependency for **both IL training datasets AND simulation environment data**
+    - **[LoL Simulation Environment](../Lol_Sim_Env/)**: For RL training and evaluation
+* **Development Philosophy:** **Dual-approach strategy leveraging MCP for both projects.** Use MCP for sophisticated IL training to get strong initial policy, then use RL in simulation for robust performance and continued learning. **M2.0 (MCP Integration & IL Training) is the highest initial priority.** Parallel development ensuring MCP serves data needs of both simulation environment (champion stats, abilities) and AI agent training (IL datasets).
+
+---
+
+## I.1. MCP Server's Dual Role
+
+### 📊 **For LoL Simulation Environment**
+The MCP server provides essential data to make the simulation environment accurate and up-to-date:
+- **Champion Stats & Abilities**: Current patch champion data for accurate simulation
+- **Item Information**: Complete item stats and interactions
+- **Game Mechanics**: Formulas for damage, cooldowns, etc.
+- **Meta Builds**: Current optimal builds for realistic opponent modeling
+
+### 🎯 **For Taric AI Agent (IL Training)**
+The MCP server provides sophisticated, ready-to-train datasets equivalent to previous 15MB per game processing:
+- **State-Action Pairs**: Preprocessed training data from high-ELO players
+- **Enhanced Features**: Positioning, combat metrics, decision context
+- **Scenario Labels**: Team fights, clutch saves, ability combos (40+ scenarios)
+- **Player Demonstrations**: Specific high-ELO player data (e.g., Estaed#TAR)
+
+### 🔄 **Combined Workflow**
+```
+MCP Server
+├── Serves lol_sim_env: Champion data, abilities, items → Accurate simulation
+└── Serves taric_ai_agent: Ready-to-train IL datasets → Quick training start
+
+Training Pipeline:
+MCP IL Datasets → IL Model → Initialize RL Agent → Train in Simulation → Expert Agent
+```
 
 ---
 
 ## II. Requirements & Features (R-Sections)
 
-This section outlines target functionality. "IV. Detailed Implementation Plan" breaks these into AI-codable tasks.
+This section outlines target functionality leveraging MCP for both IL data and simulation environment data.
 
-### R1: Imitation Learning (IL) from Live Game Data
-* R1.1: Live Data Collection System (`taric_ai_agent/il/live_data_collector/`):
-    * R1.1.1: `scripts/collect_il_data.py` orchestrator (configurable for Practice Tool scenarios).
-    * R1.1.2: `lcu_data_fetcher.py`: Polls LCU (Taric stats, other player basic info, events). Configurable tick rate.
-    * R1.1.3: `screen_recorder.py`: Captures game window. Configurable FPS (synced with LCU poll).
-    * R1.1.4: `input_logger.py`: Logs keyboard/mouse with timestamps.
-* R1.2: IL Data Processing Pipeline (`taric_ai_agent/il/` & `taric_ai_agent/common/`):
-    * R1.2.1 (Iterative): `vision_processor.py`: Processes screen frames. **MVP: Manual annotation or very simple vision for key entity positions/health.** Post-MVP: Object detection (YOLO), health bar estimation.
-    * R1.2.2: State Construction & Synchronization in `data_processor.py`: Aligns LCU, vision, input logs.
-    * R1.2.3 (Critical & Iterative): `State Mapping to Sim-Env` in `state_action_mapper.py`:
-        * Function `map_live_state_to_sim_observation(live_game_state, mapping_config)`: Maps live game state to `lol_sim_env.observation_space`. Handles coordinate transformation (e.g., screen-relative to sim-relative). Normalizes values.
-        * **MCP Integration**: Enhanced mapping using real-time champion/ability data from LoL Data MCP Server.
-    * R1.2.4 (Critical & Iterative): `Action Mapping to Sim-Env` in `state_action_mapper.py`:
-        * Function `map_live_action_to_sim_action(live_input, live_game_state)`: Maps live inputs to `lol_sim_env.action_space`. Uses heuristics for mouse clicks.
-        * **MCP Integration**: Improved action mapping with current meta builds and ability priorities.
-    * R1.2.5: `scripts/process_il_data_session.py` generates `(sim_obs, sim_action)` pairs.
-* R1.3: IL Model (`taric_ai_agent/agents/il_policy_network.py` & `il/il_dataset.py`):
-    * R1.3.1: IL neural network (e.g., MLP, optional CNN for vision features if used in sim_obs).
-    * R1.3.2: PyTorch `Dataset` for processed IL data.
-    * R1.3.3: `scripts/train_il_model.py` for supervised learning.
+### R1: Imitation Learning (IL) via MCP (PRIMARY APPROACH)
+* R1.1: MCP-Based IL Data Pipeline (`taric_ai_agent/mcp/`):
+    * R1.1.1: `mcp_client.py`: MCP protocol client for LoL Data server
+    * R1.1.2: `dataset_fetcher.py`: Fetch ready-to-train IL datasets via MCP tools:
+        - `get_imitation_dataset()` for complete Taric datasets
+        - `get_player_demonstrations()` for specific players (e.g., Estaed#TAR)
+        - `get_scenario_training_data()` for scenario-labeled data
+    * R1.1.3: `data_converter.py`: Convert MCP data to training-ready format
+* R1.2: IL Data Processing (`taric_ai_agent/il/`):
+    * R1.2.1: `dataset_processor.py`: Process MCP datasets for specific training requirements
+    * R1.2.2: `data_validator.py`: Validate MCP data quality and completeness
+    * R1.2.3: **Enhanced State/Action Mapping** using MCP data for simulation compatibility
+* R1.3: IL Model Training (`taric_ai_agent/agents/` & `training/`):
+    * R1.3.1: Enhanced IL neural network leveraging MCP's rich features (positioning, combat metrics)
+    * R1.3.2: `il_trainer.py`: Supervised learning training loop for MCP datasets
+    * R1.3.3: Model checkpointing and evaluation against MCP benchmarks
 
-### R2: Reinforcement Learning (RL) using `lol_sim_env`
-* R2.1: RL Agent Framework (`taric_ai_agent/agents/rl_agent_sb3.py`): Stable Baselines3 PPO.
-* R2.2: Policy Initialization from IL model.
-* R2.3: RL Training Loop (`scripts/train_rl_agent.py`): Cloud-execution ready.
-* R2.4: Reward Function Iteration (Feedback to Project 1).
+### R1.X: Alternative IL from Live Game Data (LEGACY/FALLBACK)
+* R1.X.1: Live Data Collection System (maintained for edge cases or additional data collection)
+* R1.X.2: Traditional processing pipeline (retained but de-prioritized in favor of MCP approach)
+
+### R2: Reinforcement Learning (RL) using `lol_sim_env` (ENHANCED WITH MCP)
+* R2.1: RL Agent Framework (`taric_ai_agent/agents/rl_agent_sb3.py`): Stable Baselines3 PPO
+* R2.2: **IL Policy Initialization**: Initialize RL agent with MCP-trained IL policy for strong starting point
+* R2.3: **MCP-Enhanced Simulation**: `lol_sim_env` uses MCP server for:
+    - Accurate champion stats and abilities from current patch
+    - Real-time item data and interactions  
+    - Meta-aware opponent modeling
+* R2.4: RL Training Pipeline (`scripts/train_rl_agent.py`):
+    - Cloud-execution ready training loop
+    - Dynamic adaptation to patch changes via MCP
+    - Performance monitoring against MCP benchmarks
+* R2.5: **Combined IL+RL Evaluation** (`scripts/evaluate_combined_agent.py`)
 
 ### R3: Agent Evaluation
 * R3.1: `scripts/evaluate_agent_in_sim.py` for IL-only and IL+RL agents in `lol_sim_env`.
@@ -60,142 +98,184 @@ This section outlines target functionality. "IV. Detailed Implementation Plan" b
 ---
 ## IV. Detailed Implementation Plan (Task-Oriented for AI Assistant)
 
-**Overall Iterative Strategy:** Prioritize M2.0. Then, establish a minimal viable IL data pipeline. Test agent interface with Project 1's MVP environment early (M2.4).
+**Overall Strategy:** **MCP-First Development.** Prioritize MCP integration for IL training data, then integrate with simulation environment for RL. Focus on leveraging sophisticated preprocessing via MCP rather than rebuilding complex data collection pipelines.
 
-**Phase 0: Foundational Setup & Prototyping**
+**Phase 0: Project Setup & MCP Integration**
 
-* **Task 0.1: Initialize Project Repository and Core Files for Agent**
-    * **Objective:** Create the main project directory, initialize Git, and create placeholder `requirements.txt`.
-    * **File(s):** `taric_ai_agent_project/` (root folder), `requirements.txt`.
+* **Task 0.1: Initialize Enhanced Project Structure for MCP Integration**
+    * **Objective:** Set up project structure optimized for MCP-based IL and simulation-based RL
+    * **File(s):** `taric_ai_agent/` (root folder), `requirements.txt`
     * **Instructions for AI:**
-        1.  "Create root directory `taric_ai_agent_project`."
-        2.  "Inside, initialize Git."
-        3.  "Create `requirements.txt`, add: `numpy gymnasium pyyaml torch torchvision torchaudio stable-baselines3 opencv-python pynput psutil requests` (add more as identified)."
-* **Task 0.2: Create Initial Agent Package Structure**
-    * **Objective:** Set up the basic Python package structure for `taric_ai_agent`.
-    * **File(s):** Create directories and `__init__.py` files as per `architecture.md` under `taric_ai_agent_project/taric_ai_agent/`.
-    * **Instructions for AI:** (Similar to Task 1.1.2 of Project 1, but for `taric_ai_agent` structure)
-        1.  Create `taric_ai_agent` dir and `__init__.py`.
-        2.  Create subdirs: `agents`, `il`, `common`, `utils` with `__init__.py` files.
-        3.  Inside `il`, create `live_data_collector` subdir with `__init__.py`.
-        4.  Create top-level `scripts`, `configs`, `data`, `trained_models`, `notebooks` dirs.
-        5.  Inside `data`, create `il_raw_live_recordings` and `il_processed_for_sim`.
-        6.  Inside `trained_models`, create `vision_object_detector`.
-
-**Phase 1: State/Action Mapping Feasibility (Corresponds to old M2.0 - CRITICAL SPIKE)**
-
-* **Task 1.1: Prototype State/Action Mapper (`scripts/prototype_state_action_mapper.py` or `notebooks/00_state_action_mapping_prototype.ipynb`)**
-    * **Objective:** Prove conceptual feasibility of mapping minimal live-like data to MVP sim state/actions.
-    * **File(s):** Script or Notebook. `taric_ai_agent/common/state_action_mapper.py` (initial version).
+        1.  "Create root directory `taric_ai_agent/`."
+        2.  "Initialize Git repository."
+        3.  "Create enhanced `requirements.txt` with MCP and RL dependencies: `numpy gymnasium pyyaml torch stable-baselines3 mcp-client requests pydantic asyncio`"
+        4.  "Add optional dependencies for legacy approaches: `opencv-python pynput psutil` (commented as optional)"
+* **Task 0.2: Create MCP-Enhanced Package Structure**
+    * **Objective:** Set up package structure as defined in `Architecture_agent.md`
+    * **File(s):** Create directory structure per Architecture_agent.md
     * **Instructions for AI:**
-        1.  "Define 5 simplified Python dictionaries representing diverse 'live game state snapshots' for Taric. Include keys like `taric_hp_live`, `taric_mana_live`, `taric_q_cd_live`, `taric_screen_pos_live: tuple(x,y)`, `enemy1_screen_pos_live: tuple(x,y)`, `enemy1_hp_live_percent`."
-        2.  "For each snapshot, define a corresponding 'live player action' string (e.g., 'PRESSED_Q', 'CLICK_MOVE_FORWARD_RELATIVE_TO_TARIC', 'CLICK_ATTACK_ENEMY1')."
-        3.  "In `state_action_mapper.py`, create function `map_live_state_to_MVP_sim_observation(live_state_snapshot)`. This function should take a snapshot dict and return a dict matching the Project 1 MVP `TaricLaningSimEnv` observation space (e.g., normalized Taric HP, Mana, Q_CD, and a *conceptual* normalized Taric position derived from `taric_screen_pos_live`). For enemy info, it can return placeholder/default values for now."
-        4.  "In `state_action_mapper.py`, create function `map_live_action_to_MVP_sim_action(live_action_string)`. This function should take the action string and return an integer corresponding to one of the Project 1 MVP `TaricLaningSimEnv` discrete actions (e.g., Move_Up, Use_Q_Self)."
-        5.  "In the script/notebook, iterate through your manual snapshots and actions. For each, call the mappers and print the original live data and the mapped sim observation/action. Verify the output format and logic."
-    * **Verification:** Mapped data is in the correct format for the Project 1 MVP Env's obs/action space. Logic seems sound for these simple cases.
+        1.  Create `taric_ai_agent/` package with `__init__.py`
+        2.  Create primary directories: `agents/`, `mcp/`, `il/`, `rl/`, `training/`, `simulation/`, `evaluation/`, `common/`, `utils/`
+        3.  Create script directories: `scripts/`, `configs/`, `data/`, `trained_models/`, `notebooks/`, `tests/`
+        4.  Create MCP-specific data directories: `data/mcp_datasets/`, `data/processed/il_training_data/`, `data/evaluation_results/`
+        5.  Add all necessary `__init__.py` files
 
-**Phase 2: IL Live Data Collection MVP (Corresponds to old M2.1 - Leverage Practice Tool)**
+**Phase 1: MCP Integration & Dataset Access (PRIORITY)**
 
-* **Task 2.1: Implement Basic `lcu_data_fetcher.py`**
-    * **Objective:** Fetch minimal Taric data from LCU. (Ref: R1.1.2)
-    * **File(s):** `taric_ai_agent/il/live_data_collector/lcu_data_fetcher.py`. `configs/live_data_collection_config.yaml`.
+* **Task 1.1: Implement MCP Client Foundation**
+    * **Objective:** Create robust MCP client for LoL Data server communication
+    * **File(s):** `taric_ai_agent/mcp/mcp_client.py`, `configs/mcp_config.yaml`
     * **Instructions for AI:**
-        1.  "Use `requests` library to connect to LCU (handle finding port/auth from lockfile, or assume fixed for now)."
-        2.  "Implement `fetch_taric_mvp_data()`: Get `/liveclientdata/activeplayer`. Extract and return Taric's current HP, MaxHP, current Mana, MaxMana, Q ability cooldown (from `activePlayer['abilities']['Q']['cooldown']`)."
-        3.  "Implement a loop that calls this function at a rate defined in `live_data_collection_config.yaml` (e.g., `lcu_poll_hz: 5`) and logs timestamped data to a list/queue."
-* **Task 2.2: Implement Basic `input_logger.py`**
-    * **Objective:** Log Q key presses and right-clicks. (Ref: R1.1.4)
-    * **File(s):** `taric_ai_agent/il/live_data_collector/input_logger.py`.
-    * **Instructions for AI:**
-        1.  "Use `pynput` library."
-        2.  "Log timestamped 'Q' key presses."
-        3.  "Log timestamped right-mouse clicks with their (x, y) screen coordinates."
-* **Task 2.3: Implement Basic `screen_recorder.py` (Optional for LCU-only mapping prototype)**
-    * **Objective:** Capture game window frames. (Ref: R1.1.3)
-    * **File(s):** `taric_ai_agent/il/live_data_collector/screen_recorder.py`.
-    * **Instructions for AI:**
-        1.  "Use a library like `mss` for screen capture."
-        2.  "Capture the primary monitor or a specified window region (configurable) at FPS from `live_data_collection_config.yaml`."
-        3.  "Save frames to a session-specific directory (e.g., `data/il_raw_live_recordings/session_XYZ/frame_timestamp.png`). Log frame paths and timestamps."
-* **Task 2.4: Implement `scripts/collect_il_data.py` Orchestrator**
-    * **Objective:** Run collectors and save data for one short session.
-    * **File(s):** `scripts/collect_il_data.py`. `data/il_raw_live_recordings/`.
-    * **Instructions for AI:**
-        1.  "Create a unique session ID (e.g., timestamp based)."
-        2.  "Start LCU fetcher, input logger, (optional) screen recorder in separate threads/processes."
-        3.  "Run for a configurable duration (e.g., 2-3 minutes from `live_data_collection_config.yaml`)."
-        4.  "Save LCU log, input log, and frame log/video to the session directory."
-        5.  "Recommendation: For first run, use League Practice Tool with Taric against static dummies to get clean data."
+        1.  "Create `MCPClient` class using mcp-client library for protocol communication"
+        2.  "Implement connection management with error handling and reconnection logic"
+        3.  "Add configuration file `mcp_config.yaml` with server settings (host, port, authentication)"
+        4.  "Implement basic tool calling functionality with response validation"
+        5.  "Add comprehensive logging for debugging and monitoring"
+        6.  "Create connection testing and health check methods"
+    * **Verification:** Can connect to MCP server and call basic tools successfully
 
-**Phase 2.5: Vision System Prototyping (Corresponds to old M2.1.5 - Independent Spike)**
-
-* **Task 2.5.1: Manually Annotate Sample Frames or Test Simple Vision**
-    * **Objective:** Assess vision requirements for MVP IL data processing.
-    * **File(s):** `notebooks/02_test_vision_processing_prototype.ipynb`. `configs/vision_processing_config.yaml`.
+* **Task 1.2: Implement Dataset Fetcher for IL Training**
+    * **Objective:** Fetch ready-to-train datasets from MCP server leveraging sophisticated preprocessing
+    * **File(s):** `taric_ai_agent/mcp/dataset_fetcher.py`
     * **Instructions for AI:**
-        1.  "Load ~20-50 diverse frames from the M2.4 data collection."
-        2.  "If `vision_processing_config.yaml` specifies `manual_annotation_mode_for_mvp: true`, guide user to manually record rough screen X,Y for Taric (e.g., from HUD minimap icon) for these frames. Store these annotations."
-        3.  "Alternatively, if aiming for automated vision for MVP: try simple template matching (OpenCV) for Taric's HUD portrait or a dominant visual feature to get a rough screen position. Evaluate its reliability on the sample frames."
-        4.  "Do not implement full object detection (YOLO) at this MVP stage unless previous step proves utterly unfeasible and YOLO is determined as the only way forward for even basic position."
-    * **Deliverable:** A small set of frames with corresponding (manual or very simply extracted) Taric screen positions. Understanding of vision difficulty for MVP.
+        1.  "Create `DatasetFetcher` class using MCPClient"
+        2.  "Implement `fetch_imitation_dataset()` using MCP `get_imitation_dataset` tool:"
+        3.  "  - Request Taric datasets: champion='Taric', players=['Estaed#TAR'], min_rank='CHALLENGER'"
+        4.  "  - Include enhanced features from sophisticated preprocessing (15MB per game equivalent)"
+        5.  "Implement `fetch_player_demonstrations()` for specific high-ELO players"
+        6.  "Implement `fetch_scenario_data()` for labeled scenarios (team fights, clutch saves, etc.)"
+        7.  "Add data caching, progress tracking, and format conversion (JSON ↔ PyTorch ↔ NumPy)"
+    * **Verification:** Can fetch sophisticated training datasets equivalent to previous 15MB per game processing
 
-**Phase 3: IL Data Processing & State/Action Mapping MVP (Corresponds to old M2.2)**
+**Phase 2: IL Model Development & Training**
 
-* **Task 3.1: Enhance `state_action_mapper.py` for MVP Data**
-    * **Objective:** Map actual collected MVP live data to MVP sim state/actions.
-    * **File(s):** `taric_ai_agent/common/state_action_mapper.py`.
+* **Task 2.1: Implement Data Processing Pipeline**
+    * **Objective:** Process MCP datasets for IL training
+    * **File(s):** `taric_ai_agent/il/dataset_processor.py`, `taric_ai_agent/il/data_validator.py`
     * **Instructions for AI:**
-        1.  "Refine `map_live_state_to_MVP_sim_observation` from Task 1.1. It now takes: LCU data (Taric HP, Mana, Q_CD), and Taric's screen position (from M2.5.1 - manual annotation or simple vision output)."
-        2.  "Map these to the Project 1 MVP `TaricLaningSimEnv` observation space (normalized Taric HP, Mana, Q_CD, and conceptual normalized Taric sim position based on screen pos). Pad other sim_obs features."
-        3.  "Refine `map_live_action_to_MVP_sim_action`. It now takes: a live input log entry (Q press or right-click with coords), and current live Taric screen position (from M2.5.1)."
-        4.  "Map 'Q' to sim `CAST_Q_SELF` (or equivalent MVP action). Map right-clicks to one of 4 discrete `MOVE_` sim actions based on direction relative to live Taric screen pos."
-* **Task 3.2: Implement `scripts/process_il_data_session.py` for MVP**
-    * **Objective:** Process one MVP raw data session.
-    * **File(s):** `scripts/process_il_data_session.py`. `data/il_processed_for_sim/`.
-    * **Instructions for AI:**
-        1.  "Load LCU log, input log, and corresponding Taric screen positions (from M2.5.1 output) for the MVP session."
-        2.  "Align data by timestamp (prioritize input log events)."
-        3.  "For each relevant input action, construct live state snapshot using nearest LCU data and Taric screen position."
-        4.  "Call mappers from `state_action_mapper.py`."
-        5.  "Save `(sim_obs_mvp, sim_action_mvp)` pairs to `dataset_mvp.h5`."
+        1.  "Create `DatasetProcessor` class for MCP dataset preprocessing"
+        2.  "Implement data validation and quality checks for training suitability"
+        3.  "Add data filtering and cleaning for noisy samples"
+        4.  "Implement train/validation/test splits with reproducible seeds"
+        5.  "Add data augmentation pipeline for improved training"
+        6.  "Create dataset statistics and analysis reporting"
+    * **Verification:** Processes MCP data into training-ready format with quality validation
 
-**Phase 4: Basic Imitation Learning Model MVP (Corresponds to old M2.3)**
+* **Task 2.2: Implement Enhanced IL Neural Network**
+    * **Objective:** Create IL model leveraging MCP's rich features
+    * **File(s):** `taric_ai_agent/agents/il_policy_network.py`
+    * **Instructions for AI:**
+        1.  "Design multi-layer neural network architecture for Taric-specific gameplay"
+        2.  "Add support for enhanced features from MCP (positioning, combat metrics, decision context)"
+        3.  "Implement scenario-aware training branches (team fights, healing, positioning)"
+        4.  "Add attention mechanisms for important game state features"
+        5.  "Implement dropout and regularization for generalization"
+        6.  "Add model interpretability features for analysis"
+    * **Verification:** Advanced neural network handles MCP's enhanced features effectively
 
-* **Task 4.1: Implement IL Model and Dataset Class for MVP**
-    * **Objective:** Create and train a very simple IL model.
-    * **File(s):** `taric_ai_agent/agents/il_policy_network.py`, `taric_ai_agent/il/il_dataset.py`.
+* **Task 2.3: Implement IL Training Pipeline**
+    * **Objective:** Create comprehensive training system
+    * **File(s):** `taric_ai_agent/training/il_trainer.py`, `taric_ai_agent/training/metrics_tracker.py`
     * **Instructions for AI:**
-        1.  "In `il_policy_network.py`, define a simple PyTorch MLP. Input: flattened MVP sim_obs. Output: logits for MVP sim_actions."
-        2.  "In `il_dataset.py`, create `IL_MVP_Dataset(Dataset)` to load `dataset_mvp.h5`."
-* **Task 4.2: Implement `scripts/train_il_model.py` for MVP**
-    * **Objective:** Train the MVP IL model.
-    * **File(s):** `scripts/train_il_model.py`. `trained_models/il_policy_mvp.pth`.
-    * **Instructions for AI:**
-        1.  "Load `IL_MVP_Dataset`."
-        2.  "Initialize MLP model, optimizer (Adam), loss (CrossEntropy)."
-        3.  "Train for a small number of epochs (e.g., 10-50). Save the trained model."
+        1.  "Create `ILTrainer` class with supervised learning loop"
+        2.  "Implement dynamic loss functions weighted by scenario importance"
+        3.  "Add learning rate scheduling and early stopping"
+        4.  "Create comprehensive training metrics and validation"
+        5.  "Add tensorboard integration for training visualization"
+        6.  "Implement model checkpointing and recovery"
+    * **Verification:** Trains IL model with comprehensive monitoring and validation
 
-**Phase 5: RL Agent Integration & Basic Run MVP (Corresponds to old M2.4, M2.5, M2.6)**
+**Phase 3: Simulation Integration & RL Training**
 
-* **Task 5.1: Integrate with Project 1 Env & Test IL Policy (CRITICAL INTEGRATION POINT)**
-    * **Objective:** Ensure Project 1 `lol_sim_env` (MVP version, e.g., after its M1.2.6 or M1.3) is installable/importable. Load IL policy and run in this sim env.
-    * **File(s):** `scripts/evaluate_agent_in_sim.py`.
+* **Task 3.1: Implement Simulation Integration Interface**
+    * **Objective:** Create interface between IL model and simulation environment
+    * **File(s):** `taric_ai_agent/simulation/env_integration.py`, `taric_ai_agent/simulation/state_mapper.py`
     * **Instructions for AI:**
-        1.  "Ensure `lol_sim_env` can be imported."
-        2.  "In `evaluate_agent_in_sim.py`, load the trained `il_policy_mvp.pth`."
-        3.  "Instantiate `TaricLaningSimEnv` (MVP version from Project 1)."
-        4.  "Run one episode: at each step, get `sim_obs` from env, pass to IL model to get `sim_action`, execute `sim_action` in env. Print obs, action, reward."
-    * **Verification:** Agent takes actions in the sim env based on IL policy without crashing. Qualitative check if actions are vaguely sensible for the learned data.
-* **Task 5.2: Setup Basic SB3 RL Agent & Short Training Run**
-    * **Objective:** Confirm RL training loop runs with the MVP sim environment.
-    * **File(s):** `taric_ai_agent/agents/rl_agent_sb3.py`, `scripts/train_rl_agent.py`.
+        1.  "Create `SimulationInterface` class for lol_sim_env integration"
+        2.  "Implement state mapping between MCP training data format and simulation observation space"
+        3.  "Add action mapping from IL model outputs to simulation action space"
+        4.  "Create validation system to ensure compatibility between IL and simulation"
+        5.  "Add performance monitoring and debugging tools"
+        6.  "Implement graceful error handling for integration issues"
+    * **Verification:** IL model can interact with simulation environment successfully
+
+* **Task 3.2: Implement RL Training Pipeline**
+    * **Objective:** Create RL training system initialized with IL policy
+    * **File(s):** `taric_ai_agent/rl/rl_trainer.py`, `taric_ai_agent/agents/rl_agent_sb3.py`
     * **Instructions for AI:**
-        1.  "In `rl_agent_sb3.py`, set up a PPO agent from Stable Baselines3 to use `TaricLaningSimEnv` (MVP)."
-        2.  "Modify `scripts/train_rl_agent.py` to initialize this PPO agent (optionally load IL policy weights if SB3 allows easy policy network surgery for MLP-to-MLP)."
-        3.  "Run a very short training loop (e.g., 1000-5000 PPO steps). Save the SB3 model."
-        4.  "Update `scripts/evaluate_agent_in_sim.py` to also be able to load and run the SB3 PPO agent."
-    * **Verification:** RL training loop completes. Evaluation script can run the PPO agent.
+        1.  "Create `RLTrainer` class using Stable Baselines3 PPO"
+        2.  "Implement IL policy initialization for RL agent"
+        3.  "Add custom reward functions optimized for Taric support role"
+        4.  "Create training loop with performance monitoring"
+        5.  "Implement dynamic hyperparameter adjustment"
+        6.  "Add checkpoint saving and model evaluation during training"
+    * **Verification:** RL training improves upon IL baseline performance
+
+* **Task 3.3: Implement Combined IL+RL Training Pipeline**
+    * **Objective:** Create seamless IL → RL training workflow
+    * **File(s):** `taric_ai_agent/training/combined_trainer.py`, `scripts/train_combined.py`
+    * **Instructions for AI:**
+        1.  "Create `CombinedTrainer` orchestrating IL then RL training"
+        2.  "Implement automatic IL→RL transition based on performance metrics"
+        3.  "Add comprehensive evaluation comparing IL-only vs IL+RL performance"
+        4.  "Create training progress visualization and reporting"
+        5.  "Implement early stopping and hyperparameter optimization"
+        6.  "Add model comparison and selection tools"
+    * **Verification:** Combined training produces superior agent performance
+
+**Phase 4: Evaluation & Performance Analysis**
+
+* **Task 4.1: Implement Comprehensive Evaluation Framework**
+    * **Objective:** Create evaluation system for IL, RL, and combined models
+    * **File(s):** `taric_ai_agent/evaluation/evaluator.py`, `scripts/evaluate_agent.py`
+    * **Instructions for AI:**
+        1.  "Create `AgentEvaluator` with multiple evaluation metrics"
+        2.  "Implement simulation-based performance testing"
+        3.  "Add scenario-specific evaluation (team fights, healing efficiency, positioning)"
+        4.  "Create performance comparison with MCP benchmark data"
+        5.  "Implement meta-adherence scoring using MCP meta analysis"
+        6.  "Add decision accuracy analysis and gameplay pattern assessment"
+        7.  "Create comprehensive evaluation reports and visualizations"
+    * **Verification:** Provides detailed performance analysis across multiple metrics
+
+* **Task 4.2: Implement Player Benchmarking System**
+    * **Objective:** Compare agent performance to high-ELO players via MCP
+    * **File(s):** `taric_ai_agent/evaluation/benchmarking.py`, `scripts/benchmark_vs_players.py`
+    * **Instructions for AI:**
+        1.  "Create `PlayerBenchmarking` system using MCP player data"
+        2.  "Implement gameplay similarity scoring against specific players (e.g., Estaed#TAR)"
+        3.  "Add decision pattern comparison and analysis"
+        4.  "Create performance gap identification and improvement recommendations"
+        5.  "Implement statistical significance testing for performance comparisons"
+        6.  "Add visualizations for performance comparison and gap analysis"
+        7.  "Create detailed benchmarking reports with actionable insights"
+    * **Verification:** Provides meaningful comparison with human expert performance
+
+**Phase 5: Production & Deployment**
+
+* **Task 5.1: Implement Model Deployment Pipeline**
+    * **Objective:** Create production-ready model serving system
+    * **File(s):** `scripts/deploy_model.py`, production configuration files
+    * **Instructions for AI:**
+        1.  "Create model packaging and versioning system"
+        2.  "Implement model serving API for real-time inference"
+        3.  "Add monitoring and logging for production performance"
+        4.  "Create automated testing and validation pipeline"
+        5.  "Implement rollback and recovery mechanisms"
+        6.  "Add performance optimization and caching"
+    * **Verification:** Model can be deployed and serves predictions reliably
+
+* **Task 5.2: Create Comprehensive Testing Suite**
+    * **Objective:** Ensure system reliability and performance
+    * **File(s):** `tests/` directory with comprehensive test coverage
+    * **Instructions for AI:**
+        1.  "Create unit tests for all major components"
+        2.  "Implement integration tests for MCP client and simulation interface"
+        3.  "Add performance tests for training and inference"
+        4.  "Create regression tests to prevent performance degradation"
+        5.  "Implement automated testing pipeline with CI/CD"
+        6.  "Add stress testing for production deployment"
+    * **Verification:** Comprehensive test coverage with automated testing pipeline
 
 ---
 ## V. Risks & Challenges (Project 2)
